@@ -248,11 +248,10 @@ fi
     root_usage=\`df -h / | awk '/\// { percent=\$(NF-1); total=\$2 } END { print percent,"of",total }'\`
     root_used=\`df -h / | awk '/\// {print \$(NF-3)}'\`
     root_total=\`df -h / | awk '/\// {print \$(NF-2)}'\`
-    memory_usage=\`free -m | awk '/(Speicher|Mem):/ { total=\$2; used=\$3 } END { printf("%3.1f%%", "exit !total;used/total*100") }'\`
-    memory=\`free -h | awk '/Mem|Speicher/ { print \$2 }'\`
-    memory_used=\`free -h | awk '/Mem|Speicher/ { print \$3 }'\`
+    memory=\`free -h | awk '/Mem|Speicher/ { print \$3"/"\$2 }'\`
+    memory_usage=\`free -m | awk '/Mem|Speicher/ { total=\$2; used=\$3 } END { if (total>0){ printf("%3.1f%%", used/total*100) } else { printf("%3.1f%%", 0) } }'\`
 
-    swap_usage=\`free -m | awk '/Swap:/ { total=\$2; used=\$3 } END { printf("%3.1f%%", "exit !total;used/total*100") }'\`
+    swap_usage=\`free -m | awk '/Swap:/ { total=\$2; used=\$3 } END { if (total>0){ printf("%3.1f%%", used/total*100) } else { printf("%3.1f%%", 0) } }'\`
     users=\`users | wc -w\`
     time=\`uptime | grep -ohe 'up .*' | sed 's/,/\ hours/g' | awk '{ printf \$2" "\$3 }'\`
     processes_total=\`ps aux | wc -l\`
@@ -265,7 +264,7 @@ fi
     echo -e "  Last Login:\t\t\$lastlog"
 #       printf "  System load:\t\t%s\n  Usage of /:\t\t%s\n" \$load \$root_usage
     echo -e "  System load:\t\t\$load\n  Usage on /:\t\t\$root_used/\$root_total (\$root_usage)"
-    printf "  Memory Usage:\t\t%s\n  Swap Usage:\t\t%s\n" \$memory_usage \$swap_usage
+    printf "  Memory Usage:\t\t%s\n  Swap Usage:\t\t%s\n" "\$memory (\$memory_usage)" \$swap_usage
 #       printf "  Usage On /:\t%s\tSwap Usage:\t%s\n" \$root_usage \$swap_usage
     printf "  Processes:\t\t%s\n  Users logged in:\t%s\n" "\$processes_total total, \$processes_user yours" \$users
     printf "  System Uptime:\t%s\n" "\$time"
