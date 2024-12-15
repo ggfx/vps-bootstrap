@@ -26,7 +26,7 @@ apt-get -y install apt-transport-https ssl-cert net-tools apache2-utils curl sud
 #service munin-node restart
 
 # Other Basics
-apt-get -y install vim htop zip ca-certificates mailutils gnupg locate rsync unattended-upgrades wget bind9-dnsutils
+apt-get -y install vim htop zip unzip ca-certificates mailutils gnupg locate rsync unattended-upgrades wget bind9-dnsutils python3-systemd
 
 # set tzdata to Europa/Berlin
 ln -fs /usr/share/zoneinfo/Europe/Berlin /etc/localtime

@@ -4,7 +4,7 @@ Setup my Virtual Private Server (Debian / Ubuntu like)
 
 - Add some basic packages
 - Set timezone to Europa/Berlin and locale to de_DE
-- Create or modify dircolors, bash aliases
+- Create or modify dircolors and bash aliases
 - Create some nice MOTD
 - Install iptables
 
