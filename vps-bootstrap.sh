@@ -14,7 +14,7 @@ echo "------------------------------------------------------------"
 apt-get update && apt-get -y upgrade
 apt-get -y install apt-transport-https ssl-cert net-tools apache2-utils curl sudo logrotate
 
-# Install Munin-Node (maybe replace with Prometheus)
+# Install Munin-Node (consider replace with Prometheus)
 #apt-get -y install munin-node libwww-perl python3-docker libcache-cache-perl libdbd-mysql-perl
 # no libdbd-mariadb-perl pkg on Ubuntu 22.04
 #apt-get -y libdbd-mariadb-perl
@@ -357,15 +357,15 @@ cat <<EOF >/etc/iptables.rules
 
 # Allows SSH connections
 # The --dport number is the same as Port in /etc/ssh/sshd_config
--A INPUT -s 80.151.193.21,93.104.244.81,83.169.19.191 -p tcp -m state --state NEW --dport 666 -j ACCEPT
+-A INPUT -p tcp -m state --state NEW --dport 52022 -j ACCEPT
 
-# Allows Munin connections
--A INPUT -s 92.51.162.6 -p tcp --dport 4949 -j ACCEPT
+# Allows Munin connections (consider replace with Prometheus)
+#-A INPUT -s 92.51.162.6 -p tcp --dport 4949 -j ACCEPT
 
 # Allow ISPConfig connections
-#-A INPUT -s 80.151.193.21,93.104.244.81 -p tcp -m state --state NEW --dport 8080 -j ACCEPT
+#-A INPUT -s 83.169.19.191 -p tcp -m state --state NEW --dport 8080 -j ACCEPT
 # Allow Docker Portainer
-#-A INPUT -s 80.151.193.21,93.104.244.81 -p tcp -m state --state NEW --dport 9443 -j ACCEPT
+#-A INPUT -s 83.169.19.191 -p tcp -m state --state NEW --dport 9443 -j ACCEPT
 
 # Allow Nydus (Hosteurope)
 -A INPUT -p tcp --dport 2224 -j ACCEPT
@@ -396,7 +396,7 @@ cat <<EOF >/etc/iptables.rules
 # so --dest and --dport will see the internal IP and port of the container.
 # To access the original destination, you can use -m conntrack --ctorigdstport
 # Allow Docker Portainer
-#-A DOCKER-USER -s 80.151.193.21,93.104.244.81 -p tcp -m conntrack --ctorigdstport 9443 --ctdir ORIGINAL -j ACCEPT
+#-A DOCKER-USER -s 83.169.19.191 -p tcp -m conntrack --ctorigdstport 9443 --ctdir ORIGINAL -j ACCEPT
 # Drop all other traffic to Portainer
 #-A DOCKER-USER -p tcp -m conntrack --ctorigdstport 9443 --ctdir ORIGINAL -j DROP
 -A DOCKER-USER -j RETURN
