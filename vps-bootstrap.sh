@@ -7,9 +7,9 @@ export HOSTNAME=$(hostname -f)
 export PUBLIC_IPV4=$(hostname -I | awk '{print $1}')
 
 # nice icons
-OK="\u2714"   # check
-WARN="\u26A0" # warning
-ERR="\u2716"  # error
+OK="\u2705"   # check
+WARN="\u2757" # warning
+ERR="\u274C"  # error
 
 #project=${HOSTNAME%-*}
 echo "------------------------------------------------------------"
@@ -456,7 +456,7 @@ fi
 set_sshd_opt(){
   local opt="$1" value="$2" file="$SSHD"
   if grep -q -E "^[#[:space:]]*${opt}[[:space:]]+" "$file"; then
-    sed -ri "s|^[#[:space:]]*${opt}[[:space:]]+.*/.*|${opt} ${value}|" "$file" && return 0 || return 1
+    sed -ri "s|^[#[:space:]]*${opt}[[:space:]]+.*|${opt} ${value}|" "$file" && return 0 || return 1
   else
     echo "${opt} ${value}" >> "$file" && return 0 || return 1
   fi
