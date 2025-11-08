@@ -1,10 +1,16 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Debian VPS Bootstrap
 # 2024-12-15
 # Cornelius Rittner
 # Get Variables
 export HOSTNAME=$(hostname -f)
 export PUBLIC_IPV4=$(hostname -I | awk '{print $1}')
+
+# nice icons
+OK="\u2714"   # check
+WARN="\u26A0" # warning
+ERR="\u2716"  # error
+
 #project=${HOSTNAME%-*}
 echo "------------------------------------------------------------"
 echo Hostname: $HOSTNAME, IP Address: $PUBLIC_IPV4
@@ -13,17 +19,6 @@ echo "------------------------------------------------------------"
 # first Update and Upgrade all packages
 apt-get update && apt-get -y upgrade
 apt-get -y install apt-transport-https ssl-cert net-tools apache2-utils curl sudo logrotate
-
-# Install Munin-Node (consider replace with Prometheus)
-#apt-get -y install munin-node libwww-perl python3-docker libcache-cache-perl libdbd-mysql-perl
-# no libdbd-mariadb-perl pkg on Ubuntu 22.04
-#apt-get -y libdbd-mariadb-perl
-# add allowed server ip
-#if [ $(egrep -L "^allow \^92\\\.51" /etc/munin/munin-node.conf) ]
-#then
-#  sed -i '/^allow \^::1\$/a allow ^92\\.51\\.162\\.6$' /etc/munin/munin-node.conf
-#fi
-#service munin-node restart
 
 # Other Basics
 apt-get -y install vim htop zip unzip ca-certificates mailutils gnupg locate rsync unattended-upgrades wget bind9-dnsutils python3-systemd
@@ -445,25 +440,91 @@ cat <<EOF >/etc/ip6tables.rules
 COMMIT
 EOF
 
+echo ""
+echo "Applying SSH and firewall hardening changes..."
+
+SSHD=/etc/ssh/sshd_config
+TIMESTAMP=$(date +%F-%T)
+
+# Backup sshd_config if not already backed up for this run
+if [ ! -f "${SSHD}.backup-${TIMESTAMP}" ]; then
+  cp -a "$SSHD" "${SSHD}.backup-${TIMESTAMP}"
+  echo -e "${OK} Created backup of sshd_config: ${SSHD}.backup-${TIMESTAMP}"
+fi
+
+# helper to set or replace a directive in sshd_config (idempotent)
+set_sshd_opt(){
+  local opt="$1" value="$2" file="$SSHD"
+  if grep -q -E "^[#[:space:]]*${opt}[[:space:]]+" "$file"; then
+    sed -ri "s|^[#[:space:]]*${opt}[[:space:]]+.*/.*|${opt} ${value}|" "$file" && return 0 || return 1
+  else
+    echo "${opt} ${value}" >> "$file" && return 0 || return 1
+  fi
+}
+
+changed=0
+if set_sshd_opt Port 52022; then
+  echo -e "${OK} Set SSH Port to 52022 in $SSHD"
+  changed=1
+else
+  echo -e "${ERR} Failed to set Port in $SSHD"
+fi
+
+if set_sshd_opt PermitRootLogin prohibit-password; then
+  echo -e "${OK} Set PermitRootLogin to prohibit-password in $SSHD"
+  changed=1
+else
+  echo -e "${ERR} Failed to set PermitRootLogin in $SSHD"
+fi
+
+# Restart ssh only if we changed the config
+if [ "$changed" -eq 1 ]; then
+  if systemctl restart ssh 2>/dev/null; then
+    echo -e "${OK} Restarted ssh service"
+  else
+    echo -e "${WARN} Could not restart ssh via systemctl; try: systemctl restart ssh or service ssh restart"
+  fi
+else
+  echo -e "${WARN} No changes to sshd_config were required"
+fi
+
+# Install and configure UFW (idempotent)
+if ! dpkg -s ufw >/dev/null 2>&1; then
+  apt-get -y install ufw
+  echo -e "${OK} Installed ufw"
+else
+  echo -e "${OK} ufw already installed"
+fi
+
+# Allow both the new SSH port and the default 22 to avoid accidental lockout. Admins may remove 22 later.
+ufw allow 52022/tcp >/dev/null 2>&1 && echo -e "${OK} Allowed TCP 52022 through ufw"
+ufw allow 22/tcp >/dev/null 2>&1 && echo -e "${WARN} Allowed TCP 22 through ufw (kept for safety; remove if you don't need it)"
+ufw allow 80/tcp >/dev/null 2>&1 && echo -e "${OK} Allowed HTTP (80) through ufw"
+ufw allow 443/tcp >/dev/null 2>&1 && echo -e "${OK} Allowed HTTPS (443) through ufw"
+#ufw allow 2224/tcp >/dev/null 2>&1 && echo -e "${OK} Allowed TCP 2224 through ufw"
+
+# Set sensible defaults
+ufw default deny incoming >/dev/null 2>&1 && echo -e "${OK} Set ufw default to deny incoming"
+ufw default allow outgoing >/dev/null 2>&1 && echo -e "${OK} Set ufw default to allow outgoing"
+
+# Enable UFW non-interactively
+if ufw status | grep -q inactive; then
+  ufw --force enable >/dev/null 2>&1 && echo -e "${OK} ufw enabled"
+else
+  echo -e "${OK} ufw already enabled"
+fi
+
+echo ""
+echo -e "${OK} sshd_config edits and ufw configuration applied."
+echo -e "${WARN} Note: Port 22 is still allowed by UFW to avoid locking you out; remove it when you verified SSH on port 52022 works: ufw delete allow 22/tcp"
+#echo -e "${WARN} iptables rules in /etc/iptables.rules and /etc/ip6tables.rules were left untouched. If you prefer to use only UFW, review or remove those files."
+
+echo -e "\nTo revert the sshd_config changes, restore the backup:\n  cp -a ${SSHD}.backup-${TIMESTAMP} ${SSHD} && systemctl restart ssh"
+
+echo -e "\nIf you want to persist iptables rules or use iptables-persistent instead of UFW:\n  apt-get install iptables-persistent\n  iptables-save > /etc/iptables/rules.v4\n  ip6tables-save > /etc/iptables/rules.v6"
+
+echo "Done."
 echo "--------------------------------------------------"
-echo "Virtual Private Server Bootstrap finished"
+echo -e "${OK} Virtual Private Server Bootstrap finished"
 echo "Restart your terminal session (logout and relogin)"
 echo "--------------------------------------------------"
-
-if [ $(grep -L "Port 52022" /etc/ssh/sshd_config) ]; then
-    echo -e "\nYou should change your sshd_config and set the SSH Port to 52022 and PermitRootLogin prohibit-password:"
-    echo "vi /etc/ssh/sshd_config"
-    echo "Afterwards restart the ssh service:"
-    echo "systemctl restart ssh"
-    echo -e "\nTwo firewall rulesets were created in /etc/iptables.rules and /etc/ip6tables.rules."
-    echo "Change them as required and then load it for IPv4:"
-    echo "iptables-restore < /etc/iptables.rules"
-    echo "For IPv6 use:"
-    echo "ip6tables-restore < /etc/ip6tables.rules"
-    echo -e "\nTo make the rules persistent on boot-time install iptables-persistent:"
-    echo "apt-get install iptables-persistent"
-    echo -e "\nYou can save your rules manually or change them directly in the persisten file:"
-    echo "iptables-save > /etc/iptables/rules.v4"
-    echo "For IPv6 please use:"
-    echo "ip6tables-save > /etc/iptables/rules.v6"
-fi
